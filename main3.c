@@ -8,7 +8,7 @@
 #include <string.h>
 
 #define DEFAULT_PORT_NUMBER 8888
-#define MAX_BUFFER_SIZE 4000
+#define MAX_BUFFER_SIZE 4096
 
 struct Connection {     
     int socket_desc;
@@ -38,13 +38,10 @@ pthread_cond_t log_full = PTHREAD_COND_INITIALIZER;
 
 void *threadWorker(void *arg);
 void *threadLogger(void *arg);
-void handleSpellCheck(int socketClient);
-
-
 
 
 int main() {
-    int port_number = DEFAULT_PORT_NUMBER;      //assgian port number
+    int port_number = DEFAULT_PORT_NUMBER;      //assign port number
     int socket_descriptor, new_socket, c;
     struct sockaddr_in server, client;
 
@@ -71,6 +68,17 @@ int main() {
    
     listen(socket_descriptor, 3);       // use listen for incoming connections
     puts("Waiting for incoming connections");
+
+   
+    pthread_t workerThread;     // creates worker thread
+    pthread_create(&workerThread, NULL, threadWorker, NULL);
+
+    pthread_t loggerThread;     //creates logger thread
+    pthread_create(&loggerThread, NULL, threadLogger, NULL);
+
+    pthread_t clientThread;     //creates client thread
+    pthread_create(&clientThread, NULL, threadClient, NULL);
+
 
     //accepting incoming connections
     while (1) {
@@ -99,31 +107,48 @@ int main() {
     if (connection_count > 0) {
         pthread_cond_signal(&connection_full);
     }
+
+    pthread_join(workerThread, NULL);
+    pthread_join(loggerThread, NULL);
+    pthread_join(clientThread, NULL);
+
+    return 0;
 }
 
 void *threadWorker(void *arg) {
 
-    intptr_t socket_descriptor = (intptr_t)arg; //casting socket descriptor tp intptr_t
+    while (1) {         // dequeue connection worker
+        pthread_mutex_lock(&connection_mutex);
+        while (connection_count == 0) {
+            pthread_cond_wait(&connection_full, &connection_mutex)
+        }
+        int socket_descriptor = connection_queue[connection_front].socket_descriptor;       //connection queue
+        connection_front = (connection_front + 1) % MAX_BUFFER_SIZE;
+        connection_count--;
 
-    int new_socket, c;
-    struct sockaddr_in server, client;
+        pthread_mutex_unlock(&connection_mutex);
 
-    new_socket = socket(AF_INET, SOCK_STREAM, 0);   //creating new socket
-    if (new_socket < 0) {
-        puts("Error could not create socket.");
-        exit(1);
+        char bufffer[1024];         //spell checking with client
+
+        ssize_t bytesReceived = recv(socket_descriptor, buffer, sizeof(buffer), 0);
+        if (bytesReceived <= 0) {
+            close(socket_descriptor);
+            continue;
+        }
+
+        const char *response = "green";         // implement spell checking
+        send(socket_descriptor, response, strlen(response), 0);
+
+        pthread_mutex_lock(&log_mutex);                         //queue log message
+        snprintf(loq_queue[++log_rear].message, sizeof(loq_queue[log_rear].message, 
+        "Socket %d: %s", socket_descriptor, response);
+
+        long_count++;                           //increment log count
+        pthread_cond_signal(&log_full);
+        pthread_mutex_unlock(&log_mutex);
     }
+    return NULL;
 
-    server.sin_family = AF_INET;        //setting up server address structure
-    server.sin_addr.s_addr = INADDR_ANY;
-    server.sin_port = htons(DEFAULT_PORT_NUMBER);
-
-    int bind_result = bind(new_socket, (struct sockaddr *)&server, sizeof(server)); //bind to bind socket to server address
-    if (bind_result < 0) {                                              
-        puts("Error could not bind socket.");
-        exit(1);
-    }
-    return NULL;        //exit thread
 }
 
 void *threadLogger(void *arg) {
