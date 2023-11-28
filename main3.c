@@ -153,27 +153,20 @@ void *threadWorker(void *arg) {
 
 void *threadLogger(void *arg) {
 
-    intptr_t socket_descriptor = (intptr_t)arg;  // cast socket descriptor to intptr_t
+    while (1) {
+        pthread_mutex_lock(&log_mutex);
+        while (long_count == 0) {
+            pthread_cond_wait(&log_full, &log_mutex);
+        }
+        char message[256];
+        strcpy(message, log_queue[log_front].message);
+        log_front = (log_front + 1) % MAX_BUFFER_SIZE;
+        log_count--;
 
-    int new_socket, c;
-    struct sockaddr_in server, client;
+        pthread_mutex_unlock(&log_mutex);
 
-    new_socket = socket(AF_INET, SOCK_STREAM, 0);   //create a new socket for logging
-    if (new_socket < 0) {
-        puts("Error could not create socket.");
-        exit(1);
+        // needs log instertion
     }
-
-    server.sin_family = AF_INET;        //set up server adress structure 
-    server.sin_addr.s_addr = INADDR_ANY;
-    server.sin_port = htons(DEFAULT_PORT_NUMBER);
-
-    //bind the logging socket to the server address
-    int bind_result = bind(new_socket, (struct sockaddr *)&server, sizeof(server));     
-    if (bind_result < 0) {
-        puts("Error could not bind socket.");
-        exit(1);
-    }
-
-    return NULL;        // Return null to exit thread
+return NULL;
+  
 }
