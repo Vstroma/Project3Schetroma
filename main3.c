@@ -38,7 +38,7 @@ pthread_cond_t log_full = PTHREAD_COND_INITIALIZER;
 
 void *threadWorker(void *arg);
 void *threadLogger(void *arg);
-
+void *threadClient(void *arg);
 
 int main() {
     int port_number = DEFAULT_PORT_NUMBER;      //assign port number
@@ -169,4 +169,11 @@ void *threadLogger(void *arg) {
     }
 return NULL;
   
+}
+
+void *threadClient(void *arg) {
+
+
+
+    
 }
