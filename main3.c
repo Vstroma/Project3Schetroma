@@ -20,6 +20,7 @@ struct Connection connection_queue[MAX_BUFFER_SIZE];
 int connection_front = 0;
 int connection_rear = -1;
 int connection_count = 0;
+int connection_capacity = 0;
 
 struct Log {
     char message[256];
@@ -29,6 +30,8 @@ struct Log log_queue[MAX_BUFFER_SIZE];
 int log_front = 0;
 int log_rear = -1;
 int log_count = 0;
+int log_capacity = 0;
+
 
 pthread_mutex_t connection_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t connection_full = PTHREAD_COND_INITIALIZER;
