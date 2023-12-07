@@ -56,19 +56,19 @@ int main() {
     // creates socket function that loops, accepts and enqueues incoming connections
     //signal is sent to the worker thread when a connection is enqueued
 
-   //FILE *dictionary_file = fopen("/usr/share/dict/words", "r");
-    //if (!dictionary_file) {
-     //   perror("Failed to open dictionary");
-     //   exit(EXIT_FAILURE);
-  //  }
+   FILE *dictionary_file = fopen("/usr/share/dict/words", "r");
+        if (!dictionary_file) {
+        perror("Failed to open dictionary");
+        exit(EXIT_FAILURE);
+    }
 
-    //char word[MAX_LENGTH];
-    //while (fgets(word, sizeof(word), dictionary_file) != NULL) {
-       // word[strcspn(word, "\n")] = 0; // Remove newline character
-      //  dictionary[dictionary_size] = strdup(word); // Store a copy of the word
-    //    dictionary_size++;
-   // }
-   // fclose(dictionary_file);
+    char word[MAX_LENGTH];
+    while (fgets(word, sizeof(word), dictionary_file) != NULL) {
+        word[strcspn(word, "\n")] = 0; // Remove newline character
+        dictionary[dictionary_size] = strdup(word); // Store a copy of the word
+        dictionary_size++;
+    }
+    fclose(dictionary_file);
 
     socket_descriptor = socket(AF_INET, SOCK_STREAM, 0);    //create the server socket
     if (socket_descriptor == -1) {
@@ -88,7 +88,7 @@ int main() {
         puts("Error could not bind socket.");
         exit(1);
     }
-    puts("Successfully bound to port ___.");
+    printf("Successfully bounded to port %d\n", DEFAULT_PORT_NUMBER);
 
     // converts active socket to listening for connection
     //listen(socket_descriptor, 3);       // use listen for incoming connections
@@ -160,15 +160,19 @@ void *threadWorker(void *arg) {
 
         pthread_mutex_unlock(&connection_mutex);
 
+        while (1) {
+
+        
         char buffer[1024];         //spell checking with client
 
-        ssize_t bytesReceived = recv(socket_desc, buffer, sizeof(buffer), 0);
+        ssize_t bytesReceived = recv(socket_desc, buffer, sizeof(buffer) - 1, 0);
         if (bytesReceived <= 0) {
-            close(socket_desc);
-            continue;
+            //close(socket_desc);
+            //continue;
+            break;
         }
 
-
+        buffer[bytesReceived] = '\0';
         // run spell checking
     
         char *words = strtok(buffer, " \n"); // Tokenize the buffer
@@ -191,6 +195,7 @@ void *threadWorker(void *arg) {
             pthread_mutex_unlock(&log_mutex);
 
             words = strtok(NULL, " \n"); // Get next word
+            }
         }
         close(socket_desc); // Close the socket after processing
     }
