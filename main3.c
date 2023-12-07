@@ -56,6 +56,7 @@ int main() {
     // creates socket function that loops, accepts and enqueues incoming connections
     //signal is sent to the worker thread when a connection is enqueued
 
+    //server opens dictionary file
    FILE *dictionary_file = fopen("/usr/share/dict/words", "r");
         if (!dictionary_file) {
         perror("Failed to open dictionary");
@@ -94,7 +95,7 @@ int main() {
     //listen(socket_descriptor, 3);       // use listen for incoming connections
     puts("Waiting for incoming connections");
 
-   
+    //server primary thread code
     pthread_t workerThread;     // creates worker thread
     pthread_create(&workerThread, NULL, threadWorker, NULL);
 
@@ -110,8 +111,8 @@ int main() {
         c = sizeof(struct sockaddr_in);
 
         listen(socket_descriptor, 3);
-        //accept a new connection // create connected descriptor
-        new_socket = accept(socket_descriptor, (struct sockaddr *)&client, (socklen_t *)&c);
+        //accept a new connection 
+        new_socket = accept(socket_descriptor, (struct sockaddr *)&client, (socklen_t *)&c);    //server side code to accept requests
         if (new_socket < 0) {
             puts("Error connection failed.");
             continue;           // continue for new connections
@@ -147,7 +148,7 @@ int compareWords(const void *a, const void *b) {
 }
 
 void *threadWorker(void *arg) {
-
+    // server primary thread code
 
     while (1) {         // dequeue connection worker
         pthread_mutex_lock(&connection_mutex);
@@ -228,7 +229,7 @@ void *threadClient(void *arg) {
     // needs client functionality
     //printf("threadClient");
 
-    //implement sending requests
+    //implement sending requests                            //client-side socket connection
     int client_socket = socket(AF_INET, SOCK_STREAM, 0);
     struct sockaddr_in server_address;
     server_address.sin_family = AF_INET;
