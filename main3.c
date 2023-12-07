@@ -9,6 +9,8 @@
 
 #define DEFAULT_PORT_NUMBER 8888
 #define MAX_BUFFER_SIZE 4096
+#define SIZE 1000000
+#define MAX_LENGTH 100
 
 struct Connection {     
     int socket_desc;
@@ -42,15 +44,31 @@ pthread_cond_t log_full = PTHREAD_COND_INITIALIZER;
 void *threadWorker(void *arg);      // processes client requests
 void *threadLogger(void *arg);     //logging messages
 void *threadClient(void *arg);      // sends request to the server
-
+int compareWords(const void *a, const void *b);      // compares words
+char *dictionary[SIZE];
+int dictionary_size = 0;
 int main() {
+
     int port_number = DEFAULT_PORT_NUMBER;      //assign port number
     int socket_descriptor, new_socket, c;
     struct sockaddr_in server, client;
-    char *message;                   //message pointer
 
     // creates socket function that loops, accepts and enqueues incoming connections
     //signal is sent to the worker thread when a connection is enqueued
+
+   //FILE *dictionary_file = fopen("/usr/share/dict/words", "r");
+    //if (!dictionary_file) {
+     //   perror("Failed to open dictionary");
+     //   exit(EXIT_FAILURE);
+  //  }
+
+    //char word[MAX_LENGTH];
+    //while (fgets(word, sizeof(word), dictionary_file) != NULL) {
+       // word[strcspn(word, "\n")] = 0; // Remove newline character
+      //  dictionary[dictionary_size] = strdup(word); // Store a copy of the word
+    //    dictionary_size++;
+   // }
+   // fclose(dictionary_file);
 
     socket_descriptor = socket(AF_INET, SOCK_STREAM, 0);    //create the server socket
     if (socket_descriptor == -1) {
@@ -73,7 +91,7 @@ int main() {
     puts("Successfully bound to port ___.");
 
     // converts active socket to listening for connection
-    listen(socket_descriptor, 3);       // use listen for incoming connections
+    //listen(socket_descriptor, 3);       // use listen for incoming connections
     puts("Waiting for incoming connections");
 
    
@@ -91,6 +109,7 @@ int main() {
     while (1) {
         c = sizeof(struct sockaddr_in);
 
+        listen(socket_descriptor, 3);
         //accept a new connection // create connected descriptor
         new_socket = accept(socket_descriptor, (struct sockaddr *)&client, (socklen_t *)&c);
         if (new_socket < 0) {
@@ -98,13 +117,13 @@ int main() {
             continue;           // continue for new connections
         }
         puts("Connection successful.");
-
         pthread_mutex_lock(&connection_mutex);      // lock the connection queue mutex before accessing it
 
         // add new connection details to the connection queue
-        connection_queue[++connection_rear].socket_desc = new_socket;
-        connection_queue[++connection_rear].timestamp = time(NULL);
-        connection_queue[++connection_rear].priority = 0;
+        connection_rear = (connection_rear + 1) % MAX_BUFFER_SIZE;
+        connection_queue[connection_rear].socket_desc = new_socket;
+        connection_queue[connection_rear].timestamp = time(NULL);
+        connection_queue[connection_rear].priority = 0;
         connection_count++;
         pthread_cond_signal(&connection_full);      // signal queue is not full
         pthread_mutex_unlock(&connection_mutex);        //unlcok the connection queue mutex
@@ -123,7 +142,12 @@ int main() {
     return 0;
 }
 
+int compareWords(const void *a, const void *b) {
+    return strcmp(*(const char **)a, *(const char **)b);
+}
+
 void *threadWorker(void *arg) {
+
 
     while (1) {         // dequeue connection worker
         pthread_mutex_lock(&connection_mutex);
@@ -144,16 +168,31 @@ void *threadWorker(void *arg) {
             continue;
         }
 
-        const char *response = "green";         // implement spell checking
-        send(socket_desc, response, strlen(response), 0);
 
-        pthread_mutex_lock(&log_mutex);                         //queue log message
-        snprintf(log_queue[++log_rear].message,
-         sizeof(log_queue[log_rear].message), "Socket %d: %s", socket_desc, response);
+        // run spell checking
+    
+        char *words = strtok(buffer, " \n"); // Tokenize the buffer
+        while (words != NULL) {
 
-        log_count++;                           //increment log count
-        pthread_cond_signal(&log_full);
-        pthread_mutex_unlock(&log_mutex);
+            char *response;
+            if (bsearch(&words, dictionary, dictionary_size, sizeof(char *), compareWords)) {
+                response = "OK";
+            } else {
+                response = "MISSPELLED";
+            }
+
+            send(socket_desc, response, strlen(response), 0);
+
+            // Log the response
+            pthread_mutex_lock(&log_mutex);
+            snprintf(log_queue[++log_rear].message, sizeof(log_queue[log_rear].message), "Socket %d: %s", socket_desc, response);
+            log_count++;
+            pthread_cond_signal(&log_full);
+            pthread_mutex_unlock(&log_mutex);
+
+            words = strtok(NULL, " \n"); // Get next word
+        }
+        close(socket_desc); // Close the socket after processing
     }
     return NULL;
 
@@ -162,7 +201,6 @@ void *threadWorker(void *arg) {
 void *threadLogger(void *arg) {
 
     while (1) {     // dequeue the log message from the queue
-    
         pthread_mutex_lock(&log_mutex);
         while (log_count == 0) {
             pthread_cond_wait(&log_full, &log_mutex);
@@ -183,7 +221,7 @@ return NULL;
 
 void *threadClient(void *arg) {
     // needs client functionality
-    printf("threadClient");
+    //printf("threadClient");
 
     //implement sending requests
     int client_socket = socket(AF_INET, SOCK_STREAM, 0);
@@ -197,7 +235,6 @@ void *threadClient(void *arg) {
         perror("Error connection failed.");
         exit(1);
     }
-
     const char *spellCheck = "example";
     send(client_socket, spellCheck, strlen(spellCheck), 0);
 
